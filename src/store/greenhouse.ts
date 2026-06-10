@@ -12,6 +12,7 @@ import type {
   WindowsillType,
   BgMusicType,
   TimeOfDay,
+  HabitCategory,
 } from "@/types"
 import { GROWTH_THRESHOLDS, STAGE_ORDER } from "@/types"
 
