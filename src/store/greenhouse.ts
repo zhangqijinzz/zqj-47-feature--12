@@ -38,12 +38,12 @@ function saveToStorage<T>(key: string, data: T) {
 }
 
 const DEFAULT_HABITS: Habit[] = [
-  { id: "h1", name: "喝水", icon: "droplets", category: "health", waterAmount: 8, completedToday: false, streak: 0, totalCompleted: 0 },
-  { id: "h2", name: "拉伸", icon: "stretch", category: "body", waterAmount: 10, completedToday: false, streak: 0, totalCompleted: 0 },
-  { id: "h3", name: "阅读", icon: "book-open", category: "mind", waterAmount: 12, completedToday: false, streak: 0, totalCompleted: 0 },
-  { id: "h4", name: "深呼吸", icon: "wind", category: "health", waterAmount: 6, completedToday: false, streak: 0, totalCompleted: 0 },
-  { id: "h5", name: "散步", icon: "footprints", category: "body", waterAmount: 10, completedToday: false, streak: 0, totalCompleted: 0 },
-  { id: "h6", name: "冥想", icon: "brain", category: "mind", waterAmount: 14, completedToday: false, streak: 0, totalCompleted: 0 },
+  { id: "h1", name: "喝水", icon: "droplets", category: "health", waterAmount: 8, completedToday: false, streak: 0, totalCompleted: 0, isCustom: false, isHidden: false },
+  { id: "h2", name: "拉伸", icon: "stretch", category: "body", waterAmount: 10, completedToday: false, streak: 0, totalCompleted: 0, isCustom: false, isHidden: false },
+  { id: "h3", name: "阅读", icon: "book-open", category: "mind", waterAmount: 12, completedToday: false, streak: 0, totalCompleted: 0, isCustom: false, isHidden: false },
+  { id: "h4", name: "深呼吸", icon: "wind", category: "health", waterAmount: 6, completedToday: false, streak: 0, totalCompleted: 0, isCustom: false, isHidden: false },
+  { id: "h5", name: "散步", icon: "footprints", category: "body", waterAmount: 10, completedToday: false, streak: 0, totalCompleted: 0, isCustom: false, isHidden: false },
+  { id: "h6", name: "冥想", icon: "brain", category: "mind", waterAmount: 14, completedToday: false, streak: 0, totalCompleted: 0, isCustom: false, isHidden: false },
 ]
 
 const DEFAULT_COLLECTION: CollectionEntry[] = [
@@ -77,6 +77,14 @@ function calculateStage(progress: number): GrowthStage {
 
 function getTodayStr() {
   return new Date().toISOString().split("T")[0]
+}
+
+function migrateHabits(habits: Habit[]): Habit[] {
+  return habits.map((h) => ({
+    ...h,
+    isCustom: h.isCustom ?? false,
+    isHidden: h.isHidden ?? false,
+  }))
 }
 
 function resetDailyHabits(habits: Habit[]): Habit[] {
@@ -172,6 +180,9 @@ interface GreenhouseStore {
 
   completeHabit: (habitId: string) => void
   resetHabitsIfNewDay: () => void
+  addCustomHabit: (name: string, category: HabitCategory, icon: string, waterAmount: number) => void
+  deleteHabit: (habitId: string) => void
+  toggleHabitHidden: (habitId: string) => void
 
   setEnvironment: (env: Partial<Environment>) => void
   setWeather: (weather: WeatherType) => void
@@ -188,7 +199,7 @@ interface GreenhouseStore {
 
 export const useGreenhouseStore = create<GreenhouseStore>((set, get) => {
   const initialPlants = loadFromStorage<Plant[]>(STORAGE_KEYS.plants, [])
-  const initialHabits = resetDailyHabits(loadFromStorage<Habit[]>(STORAGE_KEYS.habits, DEFAULT_HABITS))
+  const initialHabits = resetDailyHabits(migrateHabits(loadFromStorage<Habit[]>(STORAGE_KEYS.habits, DEFAULT_HABITS)))
   const initialEnvironment = loadFromStorage<Environment>(STORAGE_KEYS.environment, DEFAULT_ENVIRONMENT)
   const initialCollection = loadFromStorage<CollectionEntry[]>(STORAGE_KEYS.collection, DEFAULT_COLLECTION)
   const initialCheckin = loadFromStorage<CheckinData>(STORAGE_KEYS.checkinData, { lastCheckin: "", streak: 0 })
@@ -317,6 +328,45 @@ export const useGreenhouseStore = create<GreenhouseStore>((set, get) => {
     resetHabitsIfNewDay: () => {
       set((state) => {
         const habits = resetDailyHabits(state.habits)
+        saveToStorage(STORAGE_KEYS.habits, habits)
+        return { habits }
+      })
+    },
+
+    addCustomHabit: (name, category, icon, waterAmount) => {
+      set((state) => {
+        const newHabit: Habit = {
+          id: `custom-${Date.now()}`,
+          name,
+          icon,
+          category,
+          waterAmount,
+          completedToday: false,
+          streak: 0,
+          totalCompleted: 0,
+          isCustom: true,
+          isHidden: false,
+        }
+        const habits = [...state.habits, newHabit]
+        saveToStorage(STORAGE_KEYS.habits, habits)
+        return { habits }
+      })
+    },
+
+    deleteHabit: (habitId) => {
+      set((state) => {
+        const habits = state.habits.filter((h) => !(h.id === habitId && h.isCustom))
+        saveToStorage(STORAGE_KEYS.habits, habits)
+        return { habits }
+      })
+    },
+
+    toggleHabitHidden: (habitId) => {
+      set((state) => {
+        const habits = state.habits.map((h) => {
+          if (h.id !== habitId || h.isCustom) return h
+          return { ...h, isHidden: !h.isHidden }
+        })
         saveToStorage(STORAGE_KEYS.habits, habits)
         return { habits }
       })

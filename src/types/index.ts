@@ -42,6 +42,8 @@ export interface Habit {
   completedToday: boolean
   streak: number
   totalCompleted: number
+  isCustom: boolean
+  isHidden: boolean
 }
 
 export interface Environment {
